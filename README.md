@@ -79,37 +79,23 @@ make deploy
 
 ## AI エージェントへの接続
 
-### Claude Code
+### Claude Code（ワンライナー）
 
-`~/.claude.json` の `mcpServers` に追加：
-
-```json
-{
-  "mcpServers": {
-    "cloudflare-markdown": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://cloudflare-markdown-mcp-server.0g0.xyz/mcp"
-      ]
-    }
-  }
-}
+```bash
+claude mcp add --transport http cloudflare-markdown https://cloudflare-markdown-mcp-server.0g0.xyz/mcp
 ```
 
-Claude Code を再起動後、`/mcp` コマンドでツールを確認できます。
+追加後、`/mcp` コマンドで 3 つのツールが表示されます。
+
+削除する場合：
+```bash
+claude mcp remove cloudflare-markdown
+```
 
 ### ローカルサーバーに接続する場合
 
-```json
-{
-  "mcpServers": {
-    "cloudflare-markdown": {
-      "command": "npx",
-      "args": ["mcp-remote", "http://localhost:8788/mcp"]
-    }
-  }
-}
+```bash
+claude mcp add --transport http cloudflare-markdown http://localhost:8788/mcp
 ```
 
 ## 開発コマンド
