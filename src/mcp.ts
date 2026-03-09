@@ -6,6 +6,7 @@ import {
   convertUrlToMarkdown,
   listSupportedFormats,
   getMimeType,
+  isImageConversionEnabled,
 } from "./converter";
 
 export interface Env {
@@ -19,6 +20,11 @@ export interface Env {
   // 未設定の場合は認証なし（後方互換）。
   API_SECRET?: string;
 }
+
+// レスポンスヘルパー
+const text = (t: string) => ({ type: "text" as const, text: t });
+const ok = (t: string) => ({ content: [text(t)] });
+const err = (t: string) => ({ content: [text(t)], isError: true });
 
 export class MarkdownMCP extends McpAgent<Env> {
   server = new McpServer({
@@ -34,9 +40,7 @@ export class MarkdownMCP extends McpAgent<Env> {
       {
         filename: z
           .string()
-          .describe(
-            "拡張子付きのファイル名（例: document.pdf, image.jpg, spreadsheet.xlsx）"
-          ),
+          .describe("拡張子付きのファイル名（例: document.pdf, spreadsheet.xlsx）"),
         content: z
           .string()
           .describe("Base64エンコードされたファイルの内容"),
@@ -57,9 +61,7 @@ export class MarkdownMCP extends McpAgent<Env> {
             cssSelector: z
               .string()
               .optional()
-              .describe(
-                "HTML変換時に特定要素を抽出するCSSセレクタ（例: main, article, .content）"
-              ),
+              .describe("HTML変換時に特定要素を抽出するCSSセレクタ（例: main, article, .content）"),
             metadata: z
               .boolean()
               .optional()
@@ -71,58 +73,31 @@ export class MarkdownMCP extends McpAgent<Env> {
       async ({ filename, content, mimeType, conversionOptions }) => {
         let binaryContent: Uint8Array;
         try {
-          binaryContent = Uint8Array.from(atob(content), (c) =>
-            c.charCodeAt(0)
-          );
+          binaryContent = Uint8Array.from(atob(content), (c) => c.charCodeAt(0));
         } catch {
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: "エラー: contentがBase64エンコードされた文字列ではありません。",
-              },
-            ],
-            isError: true,
-          };
+          return err("エラー: contentがBase64エンコードされた文字列ではありません。");
         }
 
         const resolvedMimeType = mimeType || getMimeType(filename);
-        const enableImageConversion =
-          this.env.ENABLE_IMAGE_CONVERSION === "true";
 
         try {
           const result = await convertFileToMarkdown(
             this.env.CLOUDFLARE_ACCOUNT_ID,
             this.env.CLOUDFLARE_API_TOKEN,
-            enableImageConversion,
+            isImageConversionEnabled(this.env.ENABLE_IMAGE_CONVERSION),
             filename,
             binaryContent,
             resolvedMimeType,
             conversionOptions
           );
 
-          if (!result.ok) {
-            return {
-              content: [{ type: "text" as const, text: result.error }],
-              isError: true,
-            };
-          }
+          if (!result.ok) return err(result.error);
 
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: `${result.markdown}\n\n---\n*変換完了: ${filename} | トークン数: ${result.tokens}*`,
-              },
-            ],
-          };
+          return ok(
+            `${result.markdown}\n\n---\n*変換完了: ${filename} | トークン数: ${result.tokens}*`
+          );
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          return {
-            content: [{ type: "text" as const, text: `予期しないエラー: ${message}` }],
-            isError: true,
-          };
+          return err(`予期しないエラー: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
     );
@@ -136,9 +111,7 @@ export class MarkdownMCP extends McpAgent<Env> {
         cssSelector: z
           .string()
           .optional()
-          .describe(
-            "特定要素を抽出するCSSセレクタ（例: 'main', 'article', '.content'）"
-          ),
+          .describe("特定要素を抽出するCSSセレクタ（例: 'main', 'article', '.content'）"),
         hostname: z
           .string()
           .optional()
@@ -154,28 +127,11 @@ export class MarkdownMCP extends McpAgent<Env> {
             hostname
           );
 
-          if (!result.ok) {
-            return {
-              content: [{ type: "text" as const, text: result.error }],
-              isError: true,
-            };
-          }
+          if (!result.ok) return err(result.error);
 
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: `${result.markdown}\n\n---\n*変換元URL: ${url}*`,
-              },
-            ],
-          };
+          return ok(`${result.markdown}\n\n---\n*変換元URL: ${url}*`);
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          return {
-            content: [{ type: "text" as const, text: `エラー: ${message}` }],
-            isError: true,
-          };
+          return err(`エラー: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
     );
@@ -187,34 +143,16 @@ export class MarkdownMCP extends McpAgent<Env> {
       {},
       async () => {
         try {
-          const response = await listSupportedFormats(
+          const result = await listSupportedFormats(
             this.env.CLOUDFLARE_ACCOUNT_ID,
             this.env.CLOUDFLARE_API_TOKEN
           );
 
-          if (!response.ok) {
-            return {
-              content: [
-                {
-                  type: "text" as const,
-                  text: `HTTPエラー: ${response.status} ${response.statusText}`,
-                },
-              ],
-              isError: true,
-            };
-          }
+          if (!result.ok) return err(result.error);
 
-          const result = await response.json();
-          return {
-            content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
-          };
+          return ok(JSON.stringify(result.data, null, 2));
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          return {
-            content: [{ type: "text" as const, text: `エラー: ${message}` }],
-            isError: true,
-          };
+          return err(`エラー: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
     );

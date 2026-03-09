@@ -4,33 +4,23 @@ import {
   convertUrlToMarkdown,
   listSupportedFormats,
   getMimeType,
+  isImageConversionEnabled,
+  validateUrl,
+  MAX_FILE_SIZE,
 } from "./converter";
 import type { ConversionOptions } from "./converter";
 import type { Env } from "./mcp";
 
+export const CORS_HEADERS: HeadersInit = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data, null, 2), {
     status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
-function corsHeaders(): HeadersInit {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  };
-}
-
-function withCors(response: Response): Response {
-  const headers = new Headers(response.headers);
-  for (const [k, v] of Object.entries(corsHeaders())) {
-    headers.set(k, v);
-  }
-  return new Response(response.body, {
-    status: response.status,
-    headers,
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
 }
 
@@ -39,16 +29,16 @@ export async function handleApi(
   env: Env
 ): Promise<Response | null> {
   const url = new URL(request.url);
-  const enableImageConversion = env.ENABLE_IMAGE_CONVERSION === "true";
+  const enableImages = isImageConversionEnabled(env.ENABLE_IMAGE_CONVERSION);
 
   // GET /api/formats — 対応フォーマット一覧
   if (request.method === "GET" && url.pathname === "/api/formats") {
-    const upstream = await listSupportedFormats(
+    const result = await listSupportedFormats(
       env.CLOUDFLARE_ACCOUNT_ID,
       env.CLOUDFLARE_API_TOKEN
     );
-    const data = await upstream.json();
-    return withCors(json(data, upstream.status));
+    if (!result.ok) return json({ success: false, error: result.error }, 502);
+    return json(result.data);
   }
 
   // POST /api/convert — ファイルをMarkdownに変換
@@ -61,22 +51,26 @@ export async function handleApi(
     let options: ConversionOptions | undefined;
 
     if (contentType.includes("multipart/form-data")) {
-      // multipart/form-data: fileフィールドにファイルを添付
       let formData: FormData;
       try {
         formData = await request.formData();
       } catch {
-        return withCors(json({ success: false, error: "無効なフォームデータです。" }, 400));
+        return json({ success: false, error: "無効なフォームデータです。" }, 400);
       }
 
       const file = formData.get("file");
       if (!file || typeof file === "string") {
-        return withCors(
-          json({ success: false, error: "フォームに 'file' フィールドが必要です。" }, 400)
-        );
+        return json({ success: false, error: "フォームに 'file' フィールドが必要です。" }, 400);
       }
 
       const fileBlob = file as File;
+      if (fileBlob.size > MAX_FILE_SIZE) {
+        return json(
+          { success: false, error: `ファイルサイズが上限（${MAX_FILE_SIZE / 1024 / 1024}MB）を超えています。` },
+          413
+        );
+      }
+
       filename = fileBlob.name;
       content = new Uint8Array(await fileBlob.arrayBuffer());
       mimeType = fileBlob.type || getMimeType(fileBlob.name);
@@ -86,11 +80,10 @@ export async function handleApi(
         try {
           options = JSON.parse(optionsRaw) as ConversionOptions;
         } catch {
-          return withCors(json({ success: false, error: "conversionOptions が無効なJSONです。" }, 400));
+          return json({ success: false, error: "conversionOptions が無効なJSONです。" }, 400);
         }
       }
     } else if (contentType.includes("application/json")) {
-      // JSON: { filename, content(base64), mimeType?, conversionOptions? }
       let body: {
         filename?: unknown;
         content?: unknown;
@@ -100,12 +93,21 @@ export async function handleApi(
       try {
         body = (await request.json()) as typeof body;
       } catch {
-        return withCors(json({ success: false, error: "無効なJSONです。" }, 400));
+        return json({ success: false, error: "無効なJSONです。" }, 400);
       }
 
       if (typeof body.filename !== "string" || typeof body.content !== "string") {
-        return withCors(
-          json({ success: false, error: "'filename' と 'content'（Base64）が必要です。" }, 400)
+        return json(
+          { success: false, error: "'filename' と 'content'（Base64）が必要です。" },
+          400
+        );
+      }
+
+      // Base64サイズの簡易チェック（base64は元サイズの約4/3倍）
+      if (body.content.length > MAX_FILE_SIZE * 1.4) {
+        return json(
+          { success: false, error: `ファイルサイズが上限（${MAX_FILE_SIZE / 1024 / 1024}MB）を超えています。` },
+          413
         );
       }
 
@@ -113,27 +115,23 @@ export async function handleApi(
       try {
         content = Uint8Array.from(atob(body.content), (c) => c.charCodeAt(0));
       } catch {
-        return withCors(
-          json({ success: false, error: "'content' が有効なBase64文字列ではありません。" }, 400)
+        return json(
+          { success: false, error: "'content' が有効なBase64文字列ではありません。" },
+          400
         );
       }
       mimeType =
-        typeof body.mimeType === "string"
-          ? body.mimeType
-          : getMimeType(filename);
+        typeof body.mimeType === "string" ? body.mimeType : getMimeType(filename);
       if (body.conversionOptions && typeof body.conversionOptions === "object") {
         options = body.conversionOptions as ConversionOptions;
       }
     } else {
-      return withCors(
-        json(
-          {
-            success: false,
-            error:
-              "Content-Type は multipart/form-data または application/json を使用してください。",
-          },
-          415
-        )
+      return json(
+        {
+          success: false,
+          error: "Content-Type は multipart/form-data または application/json を使用してください。",
+        },
+        415
       );
     }
 
@@ -141,30 +139,23 @@ export async function handleApi(
       const result = await convertFileToMarkdown(
         env.CLOUDFLARE_ACCOUNT_ID,
         env.CLOUDFLARE_API_TOKEN,
-        enableImageConversion,
+        enableImages,
         filename,
         content,
         mimeType,
         options
       );
-
-      if (!result.ok) {
-        return withCors(json({ success: false, error: result.error }, 422));
-      }
-
-      return withCors(
-        json({
-          success: true,
-          markdown: result.markdown,
-          tokens: result.tokens,
-          filename: result.filename,
-          mimeType: result.mimeType,
-        })
-      );
+      if (!result.ok) return json({ success: false, error: result.error }, 422);
+      return json({
+        success: true,
+        markdown: result.markdown,
+        tokens: result.tokens,
+        filename: result.filename,
+        mimeType: result.mimeType,
+      });
     } catch (e) {
-      return withCors(
-        json({ success: false, error: e instanceof Error ? e.message : String(e) }, 500)
-      );
+      console.error("convert error:", e);
+      return json({ success: false, error: "内部サーバーエラーが発生しました。" }, 500);
     }
   }
 
@@ -174,20 +165,15 @@ export async function handleApi(
     try {
       body = (await request.json()) as typeof body;
     } catch {
-      return withCors(json({ success: false, error: "無効なJSONです。" }, 400));
+      return json({ success: false, error: "無効なJSONです。" }, 400);
     }
 
     if (typeof body.url !== "string") {
-      return withCors(json({ success: false, error: "'url' フィールドが必要です。" }, 400));
+      return json({ success: false, error: "'url' フィールドが必要です。" }, 400);
     }
 
-    let parsedUrl: URL;
-    try {
-      parsedUrl = new URL(body.url);
-      void parsedUrl;
-    } catch {
-      return withCors(json({ success: false, error: "'url' が有効なURLではありません。" }, 400));
-    }
+    const urlError = validateUrl(body.url);
+    if (urlError) return json({ success: false, error: urlError }, 400);
 
     try {
       const result = await convertUrlToMarkdown(
@@ -197,23 +183,16 @@ export async function handleApi(
         typeof body.cssSelector === "string" ? body.cssSelector : undefined,
         typeof body.hostname === "string" ? body.hostname : undefined
       );
-
-      if (!result.ok) {
-        return withCors(json({ success: false, error: result.error }, 422));
-      }
-
-      return withCors(
-        json({
-          success: true,
-          markdown: result.markdown,
-          tokens: result.tokens,
-          url: body.url,
-        })
-      );
+      if (!result.ok) return json({ success: false, error: result.error }, 422);
+      return json({
+        success: true,
+        markdown: result.markdown,
+        tokens: result.tokens,
+        url: body.url,
+      });
     } catch (e) {
-      return withCors(
-        json({ success: false, error: e instanceof Error ? e.message : String(e) }, 500)
-      );
+      console.error("convert/url error:", e);
+      return json({ success: false, error: "内部サーバーエラーが発生しました。" }, 500);
     }
   }
 

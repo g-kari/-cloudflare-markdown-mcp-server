@@ -1,6 +1,7 @@
 import { MarkdownMCP } from "./mcp";
 import { handleApi } from "./api";
 import { authenticate } from "./auth";
+import { CORS_HEADERS } from "./api";
 import type { Env } from "./mcp";
 
 export default {
@@ -13,25 +14,18 @@ export default {
 
     // CORS preflight は認証前に処理
     if (request.method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        },
-      });
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
 
     // ベアラートークン認証（API_SECRET が設定されている場合）
     // ヘルスチェック（/）は認証対象外
     if (url.pathname !== "/") {
-      const authError = authenticate(request, env.API_SECRET);
+      const authError = await authenticate(request, env.API_SECRET);
       if (authError) return authError;
     }
 
-    // MCP SSEエンドポイント
-    if (url.pathname === "/mcp") {
+    // MCP SSEエンドポイント（サブパスも含めてマッチ）
+    if (url.pathname.startsWith("/mcp")) {
       return MarkdownMCP.serveSSE("/mcp").fetch(request, env, ctx);
     }
 
@@ -48,8 +42,7 @@ export default {
           {
             name: "cloudflare-markdown-mcp-server",
             version: "1.0.0",
-            description:
-              "Cloudflare AI Markdown変換APIをMCP経由で利用できるサーバー",
+            description: "Cloudflare AI Markdown変換APIをMCP経由で利用できるサーバー",
             auth: env.API_SECRET ? "Bearer token required" : "none",
             endpoints: {
               mcp: "/mcp",
@@ -64,10 +57,7 @@ export default {
           null,
           2
         ),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }
+        { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
 
@@ -75,5 +65,4 @@ export default {
   },
 };
 
-// Durable Object クラスをエクスポート（wrangler.jsonc から参照）
 export { MarkdownMCP };
