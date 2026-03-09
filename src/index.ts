@@ -70,7 +70,7 @@ export default {
 
     // REST APIエンドポイント (/api/*)
     if (url.pathname.startsWith("/api/")) {
-      const response = await handleApi(request, env);
+      const response = await handleApi(request, env, ctx);
       if (response) return response;
     }
 

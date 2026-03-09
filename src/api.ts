@@ -27,7 +27,8 @@ function json(data: unknown, status = 200): Response {
 
 export async function handleApi(
   request: Request,
-  env: Env
+  env: Env,
+  ctx: ExecutionContext
 ): Promise<Response | null> {
   const url = new URL(request.url);
   const enableImages = isImageConversionEnabled(env.ENABLE_IMAGE_CONVERSION);
@@ -159,7 +160,7 @@ export async function handleApi(
       );
       if (!result.ok) return json({ success: false, error: result.error }, 422);
       const dailyLimit = parseInt(env.DAILY_TOKEN_LIMIT ?? "100000") || 100000;
-      void recordUsage(env.USAGE_KV, result.tokens, env.DISCORD_WEBHOOK_URL, dailyLimit);
+      ctx.waitUntil(recordUsage(env.USAGE_KV, result.tokens, env.DISCORD_WEBHOOK_URL, dailyLimit));
       return json({
         success: true,
         markdown: result.markdown,
@@ -199,7 +200,7 @@ export async function handleApi(
       );
       if (!result.ok) return json({ success: false, error: result.error }, 422);
       const dailyLimit = parseInt(env.DAILY_TOKEN_LIMIT ?? "100000") || 100000;
-      void recordUsage(env.USAGE_KV, result.tokens, env.DISCORD_WEBHOOK_URL, dailyLimit);
+      ctx.waitUntil(recordUsage(env.USAGE_KV, result.tokens, env.DISCORD_WEBHOOK_URL, dailyLimit));
       return json({
         success: true,
         markdown: result.markdown,

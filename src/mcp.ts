@@ -100,7 +100,7 @@ export class MarkdownMCPv2 extends McpAgent<Env> {
           if (!result.ok) return err(result.error);
 
           const dailyLimit = parseInt(this.env.DAILY_TOKEN_LIMIT ?? "100000") || 100000;
-          void recordUsage(this.env.USAGE_KV, result.tokens, this.env.DISCORD_WEBHOOK_URL, dailyLimit);
+          this.ctx.waitUntil(recordUsage(this.env.USAGE_KV, result.tokens, this.env.DISCORD_WEBHOOK_URL, dailyLimit));
 
           return ok(
             `${result.markdown}\n\n---\n*変換完了: ${filename} | トークン数: ${result.tokens}*`
@@ -139,7 +139,7 @@ export class MarkdownMCPv2 extends McpAgent<Env> {
           if (!result.ok) return err(result.error);
 
           const dailyLimit = parseInt(this.env.DAILY_TOKEN_LIMIT ?? "100000") || 100000;
-          void recordUsage(this.env.USAGE_KV, result.tokens, this.env.DISCORD_WEBHOOK_URL, dailyLimit);
+          this.ctx.waitUntil(recordUsage(this.env.USAGE_KV, result.tokens, this.env.DISCORD_WEBHOOK_URL, dailyLimit));
 
           return ok(`${result.markdown}\n\n---\n*変換元URL: ${url}*`);
         } catch (error) {
