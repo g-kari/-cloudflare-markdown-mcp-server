@@ -30,9 +30,12 @@
     }
   ]
 
-  // 環境変数はwrangler secret putで設定:
+  // 環境変数はwrangler secret putで設定（wrangler secret put <NAME>）:
   // wrangler secret put CLOUDFLARE_ACCOUNT_ID
   // wrangler secret put CLOUDFLARE_API_TOKEN
+  //
+  // ベアラートークン認証を有効化する場合（任意）:
+  // wrangler secret put API_SECRET  → 任意のシークレットトークンを入力
   //
   // 画像変換を有効化する場合（Workers AIモデルを使用、費用発生の可能性あり）:
   // wrangler secret put ENABLE_IMAGE_CONVERSION  → "true" と入力

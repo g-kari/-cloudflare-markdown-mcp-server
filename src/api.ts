@@ -41,11 +41,6 @@ export async function handleApi(
   const url = new URL(request.url);
   const enableImageConversion = env.ENABLE_IMAGE_CONVERSION === "true";
 
-  // CORS preflight
-  if (request.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders() });
-  }
-
   // GET /api/formats — 対応フォーマット一覧
   if (request.method === "GET" && url.pathname === "/api/formats") {
     const upstream = await listSupportedFormats(

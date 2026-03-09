@@ -1,5 +1,6 @@
 import { MarkdownMCP } from "./mcp";
 import { handleApi } from "./api";
+import { authenticate } from "./auth";
 import type { Env } from "./mcp";
 
 export default {
@@ -9,6 +10,25 @@ export default {
     ctx: ExecutionContext
   ): Promise<Response> {
     const url = new URL(request.url);
+
+    // CORS preflight は認証前に処理
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        },
+      });
+    }
+
+    // ベアラートークン認証（API_SECRET が設定されている場合）
+    // ヘルスチェック（/）は認証対象外
+    if (url.pathname !== "/") {
+      const authError = authenticate(request, env.API_SECRET);
+      if (authError) return authError;
+    }
 
     // MCP SSEエンドポイント
     if (url.pathname === "/mcp") {
@@ -30,6 +50,7 @@ export default {
             version: "1.0.0",
             description:
               "Cloudflare AI Markdown変換APIをMCP経由で利用できるサーバー",
+            auth: env.API_SECRET ? "Bearer token required" : "none",
             endpoints: {
               mcp: "/mcp",
               rest: {

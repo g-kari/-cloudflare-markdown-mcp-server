@@ -15,6 +15,9 @@ export interface Env {
   // 画像変換はWorkers AIモデルを使用するため費用が発生する可能性がある。
   // "true" を設定した場合のみ有効化される。デフォルトは無効。
   ENABLE_IMAGE_CONVERSION?: string;
+  // ベアラートークン認証。設定した場合、全エンドポイントで認証を要求する。
+  // 未設定の場合は認証なし（後方互換）。
+  API_SECRET?: string;
 }
 
 export class MarkdownMCP extends McpAgent<Env> {
