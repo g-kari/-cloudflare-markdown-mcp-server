@@ -77,12 +77,50 @@ make secret-api-token   # CLOUDFLARE_API_TOKEN を入力
 make deploy
 ```
 
+## 認証（オプション）
+
+`API_SECRET` を設定すると `/mcp` と `/api/*` に Bearer トークン認証が有効になります。未設定の場合は認証なし。
+
+### トークン発行
+
+```bash
+# openssl（推奨）
+openssl rand -hex 32
+
+# Node.js
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+# Python
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
+### 本番環境に設定
+
+```bash
+npx wrangler secret put API_SECRET
+# → 上で生成したトークンを入力
+```
+
+### ローカル環境に設定
+
+`.dev.vars` に追記：
+```
+API_SECRET=<生成したトークン>
+```
+
 ## AI エージェントへの接続
 
 ### Claude Code（ワンライナー）
 
+認証なし：
 ```bash
 claude mcp add --transport http cloudflare-markdown https://cloudflare-markdown-mcp-server.0g0.xyz/mcp
+```
+
+認証あり：
+```bash
+claude mcp add --transport http cloudflare-markdown https://cloudflare-markdown-mcp-server.0g0.xyz/mcp \
+  --header "Authorization: Bearer <your_token>"
 ```
 
 追加後、`/mcp` コマンドで 3 つのツールが表示されます。
