@@ -3,8 +3,47 @@ import { handleApi } from "./api";
 import { authenticate } from "./auth";
 import { CORS_HEADERS } from "./api";
 import type { Env } from "./mcp";
+import { getUsageStats } from "./usage";
 
 export default {
+  async scheduled(
+    _event: ScheduledEvent,
+    env: Env,
+    _ctx: ExecutionContext
+  ): Promise<void> {
+    if (!env.DISCORD_WEBHOOK_URL) return;
+
+    const dailyLimit = parseInt(env.DAILY_TOKEN_LIMIT ?? "100000") || 100000;
+    const stats = await getUsageStats(env.USAGE_KV, dailyLimit);
+    const usagePercent = dailyLimit > 0
+      ? Math.round((stats.dailyTokens / dailyLimit) * 100)
+      : 0;
+    const color = usagePercent >= 100 ? 0xff4444 : usagePercent >= 80 ? 0xff8800 : 0x00bb77;
+    const statusIcon = usagePercent >= 100 ? "🔴" : usagePercent >= 80 ? "🟡" : "🟢";
+
+    await fetch(env.DISCORD_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        embeds: [{
+          title: `${statusIcon} Cloudflare Markdown MCP: 日次使用量レポート`,
+          description: `**${stats.date}** の使用状況サマリーです。`,
+          color,
+          fields: [
+            { name: "📅 日付", value: stats.date, inline: true },
+            { name: "🔢 本日のトークン数", value: stats.dailyTokens.toLocaleString(), inline: true },
+            { name: "🚦 上限", value: `${dailyLimit.toLocaleString()} (${usagePercent}%)`, inline: true },
+            { name: "📞 本日の呼び出し回数", value: String(stats.dailyCalls), inline: true },
+            { name: "📊 累計トークン数", value: stats.totalTokens.toLocaleString(), inline: true },
+            { name: "📈 累計呼び出し回数", value: String(stats.totalCalls), inline: true },
+          ],
+          footer: { text: "cloudflare-markdown-mcp-server • 毎日 18:00 JST" },
+          timestamp: new Date().toISOString(),
+        }],
+      }),
+    });
+  },
+
   async fetch(
     request: Request,
     env: Env,

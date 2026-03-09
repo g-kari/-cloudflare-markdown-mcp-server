@@ -32,6 +32,11 @@
     "head_sampling_rate": 1
   },
 
+  // Cron Trigger: 毎日 9:00 UTC（日本時間 18:00）に使用量サマリーを Discord 通知
+  "triggers": {
+    "crons": ["0 9 * * *"]
+  },
+
   // KV: 使用量追跡（日次トークン数・呼び出し回数）
   "kv_namespaces": [
     {
