@@ -4,21 +4,25 @@
   "compatibility_date": "2024-12-01",
   "compatibility_flags": ["nodejs_compat"],
 
-  // Durable Objects: MCPAgentの状態管理に必要
+  // Durable Objects: MCPAgentの状態管理に必要（SQLite必須）
   "durable_objects": {
     "bindings": [
       {
         "name": "MCP_OBJECT",
-        "class_name": "MarkdownMCP"
+        "class_name": "MarkdownMCPv2"
       }
     ]
   },
 
-  // 初回デプロイ時のマイグレーション
+  // マイグレーション履歴
   "migrations": [
     {
       "tag": "v1",
       "new_classes": ["MarkdownMCP"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["MarkdownMCPv2"]
     }
   ],
 

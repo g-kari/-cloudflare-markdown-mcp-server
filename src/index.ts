@@ -1,4 +1,4 @@
-import { MarkdownMCP } from "./mcp";
+import { MarkdownMCPv2 } from "./mcp";
 import { handleApi } from "./api";
 import { authenticate } from "./auth";
 import { CORS_HEADERS } from "./api";
@@ -26,7 +26,7 @@ export default {
 
     // MCP SSEエンドポイント（サブパスも含めてマッチ）
     if (url.pathname.startsWith("/mcp")) {
-      return MarkdownMCP.serveSSE("/mcp").fetch(request, env, ctx);
+      return MarkdownMCPv2.serveSSE("/mcp").fetch(request, env, ctx); // eslint-disable-line
     }
 
     // REST APIエンドポイント (/api/*)
@@ -65,4 +65,18 @@ export default {
   },
 };
 
-export { MarkdownMCP };
+export { MarkdownMCPv2 };
+
+// 旧クラスのスタブ（既存DOの参照を保持するために必要）
+// v2マイグレーション完了後に削除予定
+export class MarkdownMCP implements DurableObject {
+  readonly ctx: DurableObjectState;
+  readonly env: Env;
+  constructor(ctx: DurableObjectState, env: Env) {
+    this.ctx = ctx;
+    this.env = env;
+  }
+  async fetch(_request: Request): Promise<Response> {
+    return new Response("Deprecated: use MarkdownMCPv2", { status: 410 });
+  }
+}

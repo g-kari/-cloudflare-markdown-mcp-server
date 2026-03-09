@@ -26,7 +26,7 @@ const text = (t: string) => ({ type: "text" as const, text: t });
 const ok = (t: string) => ({ content: [text(t)] });
 const err = (t: string) => ({ content: [text(t)], isError: true });
 
-export class MarkdownMCP extends McpAgent<Env> {
+export class MarkdownMCPv2 extends McpAgent<Env> {
   server = new McpServer({
     name: "cloudflare-markdown-mcp",
     version: "1.0.0",
