@@ -10,3 +10,8 @@ CLOUDFLARE_ACCOUNT_ID=your_account_id_here
 # https://dash.cloudflare.com/profile/api-tokens で生成
 # 必要な権限: Workers AI (Read), Workers Scripts (Edit)
 CLOUDFLARE_API_TOKEN=your_api_token_here
+
+# 画像変換の有効化（デフォルト: 無効）
+# 画像変換（JPEG/PNG/WebP/SVG）は Workers AI モデルを使用するため費用が発生する可能性があります。
+# 有効化する場合は "true" を設定してください。
+# ENABLE_IMAGE_CONVERSION=true

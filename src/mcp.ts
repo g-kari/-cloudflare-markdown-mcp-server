@@ -6,6 +6,9 @@ export interface Env {
   CLOUDFLARE_ACCOUNT_ID: string;
   CLOUDFLARE_API_TOKEN: string;
   MCP_OBJECT: DurableObjectNamespace;
+  // 画像変換はWorkers AIモデルを使用するため費用が発生する可能性がある。
+  // "true" を設定した場合のみ有効化される。デフォルトは無効。
+  ENABLE_IMAGE_CONVERSION?: string;
 }
 
 interface ConversionResult {
@@ -48,9 +51,21 @@ const MIME_TYPES: Record<string, string> = {
   ".svg": "image/svg+xml",
 };
 
+// Workers AIモデルを使用する画像MIMEタイプ（費用が発生する可能性あり）
+const IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/svg+xml",
+]);
+
 function getMimeType(filename: string): string {
   const ext = filename.toLowerCase().match(/\.[^.]+$/)?.[0] ?? "";
   return MIME_TYPES[ext] || "application/octet-stream";
+}
+
+function isImageMimeType(mimeType: string): boolean {
+  return IMAGE_MIME_TYPES.has(mimeType);
 }
 
 export class MarkdownMCP extends McpAgent<Env> {
@@ -63,7 +78,7 @@ export class MarkdownMCP extends McpAgent<Env> {
     // ツール1: ファイルをMarkdownに変換
     this.server.tool(
       "convert_file_to_markdown",
-      "ファイル（PDF、Word、Excel、HTML、画像等）をMarkdown形式に変換します。ファイルの内容をBase64エンコードして渡してください。",
+      "ファイル（PDF、Word、Excel、HTML等）をMarkdown形式に変換します。画像変換（JPEG/PNG/WebP/SVG）はサーバー側で ENABLE_IMAGE_CONVERSION=true が設定されている場合のみ利用できます。ファイルの内容をBase64エンコードして渡してください。",
       {
         filename: z
           .string()
@@ -128,6 +143,23 @@ export class MarkdownMCP extends McpAgent<Env> {
           }
 
           const resolvedMimeType = mimeType || getMimeType(filename);
+
+          // 画像変換は Workers AI モデルを使用するため、明示的に有効化が必要
+          if (
+            isImageMimeType(resolvedMimeType) &&
+            this.env.ENABLE_IMAGE_CONVERSION !== "true"
+          ) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: `画像変換は無効です（${filename}）。\n画像変換には Workers AI モデルが使用され、費用が発生する可能性があります。\n有効化するには環境変数 ENABLE_IMAGE_CONVERSION=true を設定してください。`,
+                },
+              ],
+              isError: true,
+            };
+          }
+
           const blob = new Blob([binaryContent], { type: resolvedMimeType });
 
           const formData = new FormData();
