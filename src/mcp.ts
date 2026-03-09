@@ -8,17 +8,23 @@ import {
   getMimeType,
   isImageConversionEnabled,
 } from "./converter";
+import { recordUsage } from "./usage";
 
 export interface Env {
   CLOUDFLARE_ACCOUNT_ID: string;
   CLOUDFLARE_API_TOKEN: string;
   MCP_OBJECT: DurableObjectNamespace;
+  USAGE_KV: KVNamespace;
   // 画像変換はWorkers AIモデルを使用するため費用が発生する可能性がある。
   // "true" を設定した場合のみ有効化される。デフォルトは無効。
   ENABLE_IMAGE_CONVERSION?: string;
   // ベアラートークン認証。設定した場合、全エンドポイントで認証を要求する。
   // 未設定の場合は認証なし（後方互換）。
   API_SECRET?: string;
+  // Discord Webhook URL（使用量通知用）
+  DISCORD_WEBHOOK_URL?: string;
+  // 日次トークン上限（超えたら Discord に通知）。デフォルト: 100000
+  DAILY_TOKEN_LIMIT?: string;
 }
 
 // レスポンスヘルパー
@@ -93,6 +99,9 @@ export class MarkdownMCPv2 extends McpAgent<Env> {
 
           if (!result.ok) return err(result.error);
 
+          const dailyLimit = parseInt(this.env.DAILY_TOKEN_LIMIT ?? "100000") || 100000;
+          void recordUsage(this.env.USAGE_KV, result.tokens, this.env.DISCORD_WEBHOOK_URL, dailyLimit);
+
           return ok(
             `${result.markdown}\n\n---\n*変換完了: ${filename} | トークン数: ${result.tokens}*`
           );
@@ -128,6 +137,9 @@ export class MarkdownMCPv2 extends McpAgent<Env> {
           );
 
           if (!result.ok) return err(result.error);
+
+          const dailyLimit = parseInt(this.env.DAILY_TOKEN_LIMIT ?? "100000") || 100000;
+          void recordUsage(this.env.USAGE_KV, result.tokens, this.env.DISCORD_WEBHOOK_URL, dailyLimit);
 
           return ok(`${result.markdown}\n\n---\n*変換元URL: ${url}*`);
         } catch (error) {

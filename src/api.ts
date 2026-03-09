@@ -10,6 +10,7 @@ import {
 } from "./converter";
 import type { ConversionOptions } from "./converter";
 import type { Env } from "./mcp";
+import { recordUsage, getUsageStats } from "./usage";
 
 export const CORS_HEADERS: HeadersInit = {
   "Access-Control-Allow-Origin": "*",
@@ -30,6 +31,17 @@ export async function handleApi(
 ): Promise<Response | null> {
   const url = new URL(request.url);
   const enableImages = isImageConversionEnabled(env.ENABLE_IMAGE_CONVERSION);
+
+  // GET /api/usage — 使用量統計
+  if (request.method === "GET" && url.pathname === "/api/usage") {
+    const dailyLimit = parseInt(env.DAILY_TOKEN_LIMIT ?? "100000") || 100000;
+    const stats = await getUsageStats(env.USAGE_KV, dailyLimit);
+    return json({
+      success: true,
+      ...stats,
+      limitReached: stats.dailyTokens >= stats.dailyTokenLimit,
+    });
+  }
 
   // GET /api/formats — 対応フォーマット一覧
   if (request.method === "GET" && url.pathname === "/api/formats") {
@@ -146,6 +158,8 @@ export async function handleApi(
         options
       );
       if (!result.ok) return json({ success: false, error: result.error }, 422);
+      const dailyLimit = parseInt(env.DAILY_TOKEN_LIMIT ?? "100000") || 100000;
+      void recordUsage(env.USAGE_KV, result.tokens, env.DISCORD_WEBHOOK_URL, dailyLimit);
       return json({
         success: true,
         markdown: result.markdown,
@@ -184,6 +198,8 @@ export async function handleApi(
         typeof body.hostname === "string" ? body.hostname : undefined
       );
       if (!result.ok) return json({ success: false, error: result.error }, 422);
+      const dailyLimit = parseInt(env.DAILY_TOKEN_LIMIT ?? "100000") || 100000;
+      void recordUsage(env.USAGE_KV, result.tokens, env.DISCORD_WEBHOOK_URL, dailyLimit);
       return json({
         success: true,
         markdown: result.markdown,

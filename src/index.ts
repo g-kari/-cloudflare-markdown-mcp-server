@@ -51,6 +51,7 @@ export default {
                   "ファイルをMarkdownに変換 (multipart/form-data または JSON+base64)",
                 "POST /api/convert/url": "URLのページをMarkdownに変換",
                 "GET /api/formats": "対応フォーマット一覧",
+                "GET /api/usage": "使用量統計（日次・累計トークン数・呼び出し回数）",
               },
             },
           },

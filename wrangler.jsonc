@@ -32,6 +32,14 @@
     "head_sampling_rate": 1
   },
 
+  // KV: 使用量追跡（日次トークン数・呼び出し回数）
+  "kv_namespaces": [
+    {
+      "binding": "USAGE_KV",
+      "id": "885f97d7995f407cb95676ac23d6b656"
+    }
+  ],
+
   // カスタムドメイン
   "routes": [
     {
@@ -49,4 +57,8 @@
   //
   // 画像変換を有効化する場合（Workers AIモデルを使用、費用発生の可能性あり）:
   // wrangler secret put ENABLE_IMAGE_CONVERSION  → "true" と入力
+  //
+  // 使用量通知（Discord Webhook）:
+  // wrangler secret put DISCORD_WEBHOOK_URL  → Discord Webhook URL を入力
+  // wrangler secret put DAILY_TOKEN_LIMIT    → 日次トークン上限を入力（デフォルト: 100000）
 }
