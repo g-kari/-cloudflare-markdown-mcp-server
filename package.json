@@ -11,9 +11,11 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.15.0",
     "agents": "^0.0.96",
     "zod": "^3.24.0"
+  },
+  "overrides": {
+    "@modelcontextprotocol/sdk": "1.27.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250109.0",
