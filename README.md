@@ -114,12 +114,14 @@ API_SECRET=<生成したトークン>
 
 認証なし：
 ```bash
-claude mcp add --transport http cloudflare-markdown https://cloudflare-markdown-mcp-server.0g0.xyz/mcp
+claude mcp add cloudflare-markdown \
+  -- npx mcp-remote https://cloudflare-markdown-mcp-server.0g0.xyz/mcp
 ```
 
 認証あり：
 ```bash
-claude mcp add --transport http cloudflare-markdown https://cloudflare-markdown-mcp-server.0g0.xyz/mcp \
+claude mcp add cloudflare-markdown \
+  -- npx mcp-remote https://cloudflare-markdown-mcp-server.0g0.xyz/mcp \
   --header "Authorization: Bearer <your_token>"
 ```
 
@@ -130,10 +132,29 @@ claude mcp add --transport http cloudflare-markdown https://cloudflare-markdown-
 claude mcp remove cloudflare-markdown
 ```
 
+最終的に `~/.claude.json` の `mcpServers` は以下のようになります：
+
+```json
+{
+  "cloudflare-markdown": {
+    "type": "stdio",
+    "command": "npx",
+    "args": [
+      "mcp-remote",
+      "https://cloudflare-markdown-mcp-server.0g0.xyz/mcp",
+      "--header",
+      "Authorization: Bearer <your_token>"
+    ]
+  }
+}
+```
+
 ### ローカルサーバーに接続する場合
 
 ```bash
-claude mcp add --transport http cloudflare-markdown http://localhost:8788/mcp
+claude mcp add cloudflare-markdown \
+  -- npx mcp-remote http://localhost:8788/mcp \
+  --header "Authorization: Bearer <your_token>"
 ```
 
 ## 開発コマンド
