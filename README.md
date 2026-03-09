@@ -4,6 +4,19 @@ Cloudflare AI の [Markdown変換API](https://developers.cloudflare.com/workers-
 
 Cloudflare Workers 上で動作します。
 
+## ワンクリックデプロイ
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/g-kari/-cloudflare-markdown-mcp-server)
+
+デプロイ後、以下のシークレットを設定してください：
+
+```bash
+npx wrangler secret put CLOUDFLARE_ACCOUNT_ID  # Cloudflare アカウント ID
+npx wrangler secret put CLOUDFLARE_API_TOKEN   # Workers AI 権限付き API トークン
+```
+
+> **API Token の作成方法**: [Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens) → Custom token → `Workers AI: Run` 権限を付与
+
 ## MCP Endpoint
 
 ```

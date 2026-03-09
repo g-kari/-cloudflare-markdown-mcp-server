@@ -14,7 +14,7 @@ export interface Env {
   CLOUDFLARE_ACCOUNT_ID: string;
   CLOUDFLARE_API_TOKEN: string;
   MCP_OBJECT: DurableObjectNamespace;
-  USAGE_KV: KVNamespace;
+  USAGE_KV?: KVNamespace;
   // 画像変換はWorkers AIモデルを使用するため費用が発生する可能性がある。
   // "true" を設定した場合のみ有効化される。デフォルトは無効。
   ENABLE_IMAGE_CONVERSION?: string;

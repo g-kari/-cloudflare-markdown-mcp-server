@@ -45,11 +45,12 @@ async function sendDiscordNotification(
 }
 
 export async function recordUsage(
-  kv: KVNamespace,
+  kv: KVNamespace | undefined,
   tokens: number,
   webhookUrl: string | undefined,
   dailyTokenLimit: number
 ): Promise<void> {
+  if (!kv) return;
   const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   const dailyTokenKey = `usage:daily:${date}:tokens`;
   const dailyCallKey = `usage:daily:${date}:calls`;
@@ -127,9 +128,13 @@ export async function recordUsage(
 }
 
 export async function getUsageStats(
-  kv: KVNamespace,
+  kv: KVNamespace | undefined,
   dailyTokenLimit: number
 ): Promise<UsageStats> {
+  if (!kv) {
+    const date = new Date().toISOString().slice(0, 10);
+    return { date, dailyTokens: 0, dailyCalls: 0, totalTokens: 0, totalCalls: 0, dailyTokenLimit };
+  }
   const date = new Date().toISOString().slice(0, 10);
   const [dailyTokensStr, dailyCallsStr, totalTokensStr, totalCallsStr] =
     await Promise.all([

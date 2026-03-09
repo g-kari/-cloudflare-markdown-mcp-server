@@ -44,9 +44,9 @@ build:
 type-check:
 	$(DEVBOX) type-check
 
-# Cloudflare Workersにデプロイ
+# Cloudflare Workersにデプロイ（本番環境: カスタムドメイン・KV込み）
 deploy:
-	$(DEVBOX) deploy
+	$(DEVBOX) -- npx wrangler deploy --env production
 
 # デプロイ済みWorkerのログ確認
 logs:

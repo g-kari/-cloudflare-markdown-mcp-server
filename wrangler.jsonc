@@ -37,33 +37,51 @@
     "crons": ["0 9 * * *"]
   },
 
-  // KV: 使用量追跡（日次トークン数・呼び出し回数）
-  "kv_namespaces": [
-    {
-      "binding": "USAGE_KV",
-      "id": "885f97d7995f407cb95676ac23d6b656"
-    }
-  ],
+  // 必須シークレット（wrangler secret put <NAME> で設定）:
+  //   CLOUDFLARE_ACCOUNT_ID  — Cloudflare アカウント ID
+  //   CLOUDFLARE_API_TOKEN   — Workers AI の権限を持つ API トークン
+  //
+  // オプションシークレット:
+  //   API_SECRET             — Bearer トークン認証を有効化
+  //   ENABLE_IMAGE_CONVERSION — "true" で画像変換を有効化（費用発生の可能性あり）
+  //   DISCORD_WEBHOOK_URL    — 使用量通知先の Discord Webhook URL
+  //   DAILY_TOKEN_LIMIT      — 日次トークン上限（デフォルト: 100000）
+  //
+  // 使用量追跡を有効化する場合は KV Namespace を追加:
+  //   1. npx wrangler kv namespace create USAGE_KV
+  //   2. 出力された ID を下記に貼り付けて wrangler deploy
+  //
+  // "kv_namespaces": [
+  //   { "binding": "USAGE_KV", "id": "<YOUR_KV_NAMESPACE_ID>" }
+  // ]
 
-  // カスタムドメイン
-  "routes": [
-    {
-      "pattern": "cloudflare-markdown-mcp-server.0g0.xyz",
-      "custom_domain": true
+  // ── 本番環境（オーナー専用）─────────────────────────────────────
+  // deploy ボタン経由のデプロイはデフォルト環境を使用するため
+  // カスタムドメインと KV は production 環境にのみ設定する
+  "env": {
+    "production": {
+      // 環境固有設定（durable_objects は environments に継承されないため再定義）
+      "name": "cloudflare-markdown-mcp-server",
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "MCP_OBJECT",
+            "class_name": "MarkdownMCPv2"
+          }
+        ]
+      },
+      "kv_namespaces": [
+        {
+          "binding": "USAGE_KV",
+          "id": "885f97d7995f407cb95676ac23d6b656"
+        }
+      ],
+      "routes": [
+        {
+          "pattern": "cloudflare-markdown-mcp-server.0g0.xyz",
+          "custom_domain": true
+        }
+      ]
     }
-  ]
-
-  // 環境変数はwrangler secret putで設定（wrangler secret put <NAME>）:
-  // wrangler secret put CLOUDFLARE_ACCOUNT_ID
-  // wrangler secret put CLOUDFLARE_API_TOKEN
-  //
-  // ベアラートークン認証を有効化する場合（任意）:
-  // wrangler secret put API_SECRET  → 任意のシークレットトークンを入力
-  //
-  // 画像変換を有効化する場合（Workers AIモデルを使用、費用発生の可能性あり）:
-  // wrangler secret put ENABLE_IMAGE_CONVERSION  → "true" と入力
-  //
-  // 使用量通知（Discord Webhook）:
-  // wrangler secret put DISCORD_WEBHOOK_URL  → Discord Webhook URL を入力
-  // wrangler secret put DAILY_TOKEN_LIMIT    → 日次トークン上限を入力（デフォルト: 100000）
+  }
 }
