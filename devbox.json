@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.17.0/.schema/devbox.schema.json",
+  "packages": [
+    "nodejs@22.22.0"
+  ],
+  "shell": {
+    "init_hook": [
+      "npm install --silent 2>/dev/null || true"
+    ],
+    "scripts": {
+      "start": "npx wrangler dev",
+      "deploy": "npx wrangler deploy",
+      "build": "npx tsc --noEmit",
+      "type-check": "npx tsc --noEmit",
+      "secret:account-id": "npx wrangler secret put CLOUDFLARE_ACCOUNT_ID",
+      "secret:api-token": "npx wrangler secret put CLOUDFLARE_API_TOKEN",
+      "secret:list": "npx wrangler secret list",
+      "logs": "npx wrangler tail",
+      "inspector": "npx @modelcontextprotocol/inspector@latest"
+    }
+  }
+}
