@@ -1,0 +1,36 @@
+{
+  "name": "cloudflare-markdown-mcp-server",
+  "main": "src/index.ts",
+  "compatibility_date": "2024-12-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Durable Objects: MCPAgentの状態管理に必要
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "MCP_OBJECT",
+        "class_name": "MarkdownMCP"
+      }
+    ]
+  },
+
+  // 初回デプロイ時のマイグレーション
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["MarkdownMCP"]
+    }
+  ],
+
+  // カスタムドメイン
+  "routes": [
+    {
+      "pattern": "cloudflare-markdown-mcp-server.0g0.xyz",
+      "custom_domain": true
+    }
+  ]
+
+  // 環境変数はwrangler secret putで設定:
+  // wrangler secret put CLOUDFLARE_ACCOUNT_ID
+  // wrangler secret put CLOUDFLARE_API_TOKEN
+}

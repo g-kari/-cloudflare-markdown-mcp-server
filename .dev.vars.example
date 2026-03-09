@@ -1,0 +1,12 @@
+# ローカル開発用の環境変数
+# このファイルを .dev.vars にコピーして実際の値を設定してください
+# .dev.vars は .gitignore に追加済みです（コミットしないでください）
+
+# Cloudflare Account ID
+# https://dash.cloudflare.com/ の右サイドバーで確認
+CLOUDFLARE_ACCOUNT_ID=your_account_id_here
+
+# Cloudflare API Token
+# https://dash.cloudflare.com/profile/api-tokens で生成
+# 必要な権限: Workers AI (Read), Workers Scripts (Edit)
+CLOUDFLARE_API_TOKEN=your_api_token_here
