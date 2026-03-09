@@ -24,9 +24,9 @@ export default {
       if (authError) return authError;
     }
 
-    // MCP SSEエンドポイント（サブパスも含めてマッチ）
+    // MCPエンドポイント（Streamable HTTP + SSEフォールバック対応）
     if (url.pathname.startsWith("/mcp")) {
-      return MarkdownMCPv2.serveSSE("/mcp").fetch(request, env, ctx); // eslint-disable-line
+      return MarkdownMCPv2.mount("/mcp").fetch(request, env, ctx);
     }
 
     // REST APIエンドポイント (/api/*)
