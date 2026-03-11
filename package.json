@@ -11,7 +11,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "agents": "^0.0.96",
+    "agents": "^0.3.10",
     "zod": "^3.24.0"
   },
   "overrides": {
