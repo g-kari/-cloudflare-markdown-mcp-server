@@ -42,7 +42,7 @@ export class MarkdownMCPv2 extends McpAgent<Env> {
     // ツール1: ファイルをMarkdownに変換
     this.server.tool(
       "convert_file_to_markdown",
-      "ファイル（PDF、Word、Excel、HTML等）をMarkdown形式に変換します。画像変換（JPEG/PNG/WebP/SVG）はサーバー側で ENABLE_IMAGE_CONVERSION=true が設定されている場合のみ利用できます。ファイルの内容をBase64エンコードして渡してください。",
+      "ファイル（PDF、Word、Excel、HTML等）をMarkdown形式に変換します。contentにURLを渡した場合（http://またはhttps://で始まる）は自動的にURLのページをMarkdownに変換します。ファイルの場合はBase64エンコードして渡してください。画像変換（JPEG/PNG/WebP/SVG）はサーバー側で ENABLE_IMAGE_CONVERSION=true が設定されている場合のみ利用できます。",
       {
         filename: z
           .string()
@@ -77,6 +77,28 @@ export class MarkdownMCPv2 extends McpAgent<Env> {
           .describe("変換オプション（省略可）"),
       },
       async ({ filename, content, mimeType, conversionOptions }) => {
+        // contentがURLの場合はURL変換に自動切り替え
+        if (/^https?:\/\//i.test(content.trim())) {
+          try {
+            const result = await convertUrlToMarkdown(
+              this.env.CLOUDFLARE_ACCOUNT_ID,
+              this.env.CLOUDFLARE_API_TOKEN,
+              content.trim(),
+              conversionOptions?.cssSelector,
+              conversionOptions?.hostname
+            );
+
+            if (!result.ok) return err(result.error);
+
+            const dailyLimit = parseInt(this.env.DAILY_TOKEN_LIMIT ?? "100000") || 100000;
+            this.ctx.waitUntil(recordUsage(this.env.USAGE_KV, result.tokens, this.env.DISCORD_WEBHOOK_URL, dailyLimit));
+
+            return ok(`${result.markdown}\n\n---\n*変換元URL: ${content.trim()}*`);
+          } catch (error) {
+            return err(`エラー: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+
         let binaryContent: Uint8Array;
         try {
           binaryContent = Uint8Array.from(atob(content), (c) => c.charCodeAt(0));
