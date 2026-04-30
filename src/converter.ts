@@ -3,6 +3,9 @@
 // 10MB
 export const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
+// デフォルトタイムアウト: 30秒
+export const REQUEST_TIMEOUT_MS = 30_000;
+
 export interface ConversionOptions {
   descriptionLanguage?: "en" | "it" | "de" | "es" | "fr" | "pt";
   hostname?: string;
@@ -124,14 +127,23 @@ async function callCloudflareApi(
   apiToken: string,
   formData: FormData
 ): Promise<ConversionResult> {
-  const response = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/tomarkdown`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiToken}` },
-      body: formData,
+  let response: Response;
+  try {
+    response = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/tomarkdown`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiToken}` },
+        body: formData,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      }
+    );
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "TimeoutError") {
+      return { ok: false, error: `APIリクエストがタイムアウトしました（${REQUEST_TIMEOUT_MS / 1000}秒）。` };
     }
-  );
+    throw e;
+  }
 
   if (!response.ok) {
     return {
@@ -209,12 +221,21 @@ export async function convertUrlToMarkdown(
 
   const urlObj = new URL(url);
 
-  const fetchResponse = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; CloudflareMarkdownMCP/1.0)",
-      Accept: "text/html,application/xhtml+xml",
-    },
-  });
+  let fetchResponse: Response;
+  try {
+    fetchResponse = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; CloudflareMarkdownMCP/1.0)",
+        Accept: "text/html,application/xhtml+xml",
+      },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "TimeoutError") {
+      return { ok: false, error: `URLの取得がタイムアウトしました（${REQUEST_TIMEOUT_MS / 1000}秒）。` };
+    }
+    throw e;
+  }
 
   if (!fetchResponse.ok) {
     return {
@@ -254,10 +275,21 @@ export async function listSupportedFormats(
   accountId: string,
   apiToken: string
 ): Promise<ConversionError | FormatsResult> {
-  const response = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/tomarkdown/supported`,
-    { headers: { Authorization: `Bearer ${apiToken}` } }
-  );
+  let response: Response;
+  try {
+    response = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/tomarkdown/supported`,
+      {
+        headers: { Authorization: `Bearer ${apiToken}` },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      }
+    );
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "TimeoutError") {
+      return { ok: false, error: `APIリクエストがタイムアウトしました（${REQUEST_TIMEOUT_MS / 1000}秒）。` };
+    }
+    throw e;
+  }
 
   if (!response.ok) {
     return {
