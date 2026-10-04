@@ -4,6 +4,7 @@ import { authenticate } from "./auth";
 import { CORS_HEADERS } from "./api";
 import type { Env } from "./mcp";
 import { getUsageStats } from "./usage";
+import { handleMcpHttp, MCP_CORS_HEADERS, MCP_HTTP_PATH } from "./mcp-http";
 
 export default {
   async scheduled(
@@ -53,6 +54,9 @@ export default {
 
     // CORS preflight は認証前に処理
     if (request.method === "OPTIONS") {
+      if (url.pathname === MCP_HTTP_PATH) {
+        return new Response(null, { status: 204, headers: MCP_CORS_HEADERS });
+      }
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
 
@@ -60,11 +64,21 @@ export default {
     // ヘルスチェック（/）は認証対象外
     if (url.pathname !== "/") {
       const authError = await authenticate(request, env.API_SECRET);
-      if (authError) return authError;
+      if (authError) {
+        if (url.pathname === MCP_HTTP_PATH) {
+          const headers = new Headers(authError.headers);
+          for (const [name, value] of Object.entries(MCP_CORS_HEADERS)) headers.set(name, value);
+          return new Response(authError.body, { status: authError.status, headers });
+        }
+        return authError;
+      }
     }
 
-    // MCPエンドポイント（Streamable HTTP + SSEフォールバック対応）
-    if (url.pathname.startsWith("/mcp")) {
+    // 推奨: ステートレス Streamable HTTP（セッションごとの SQL DB 不要）
+    if (url.pathname === MCP_HTTP_PATH) return handleMcpHttp(request, env, ctx);
+
+    // 旧SSEを維持。HTTPのGETプローブと混同しないよう別パスにする。
+    if (url.pathname === "/mcp" || url.pathname === "/mcp/message") {
       return MarkdownMCPv2.mount("/mcp").fetch(request, env, ctx);
     }
 
@@ -84,7 +98,8 @@ export default {
             description: "Cloudflare AI Markdown変換APIをMCP経由で利用できるサーバー",
             auth: env.API_SECRET ? "Bearer token required" : "none",
             endpoints: {
-              mcp: "/mcp",
+              mcp: MCP_HTTP_PATH,
+              legacySse: "/mcp",
               rest: {
                 "POST /api/convert":
                   "ファイルをMarkdownに変換 (multipart/form-data または JSON+base64)",

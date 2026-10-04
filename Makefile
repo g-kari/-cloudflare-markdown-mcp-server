@@ -1,6 +1,6 @@
 DEVBOX := devbox run
 
-.PHONY: help install start deploy build type-check \
+.PHONY: help install start deploy build type-check test \
         secret-account-id secret-api-token secret-list \
         logs inspector setup
 
@@ -15,6 +15,7 @@ help:
 	@echo "  start             ローカル開発サーバー起動 (http://localhost:8788)"
 	@echo "  build             TypeScript型チェック"
 	@echo "  type-check        TypeScript型チェック (buildと同じ)"
+	@echo "  test              MCP互換性・セッション保持の自動テスト"
 	@echo "  inspector         MCP Inspectorを起動してツールをテスト"
 	@echo ""
 	@echo "デプロイ:"
@@ -43,6 +44,9 @@ build:
 
 type-check:
 	$(DEVBOX) type-check
+
+test:
+	$(DEVBOX) test
 
 # Cloudflare Workersにデプロイ（本番環境: カスタムドメイン・KV込み）
 deploy:
