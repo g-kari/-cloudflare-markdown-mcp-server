@@ -16,7 +16,8 @@
       "secret:api-token": "npx wrangler secret put CLOUDFLARE_API_TOKEN",
       "secret:list": "npx wrangler secret list",
       "logs": "npx wrangler tail",
-      "inspector": "npx @modelcontextprotocol/inspector@latest"
+      "inspector": "npx @modelcontextprotocol/inspector@latest",
+      "test": "npm test"
     }
   }
 }

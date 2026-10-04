@@ -1,4 +1,7 @@
 import { McpAgent } from "agents/mcp";
+import type { Connection, ConnectionContext } from "agents";
+import type { MessageExtraInfo } from "@modelcontextprotocol/sdk/types.js";
+import { LegacySessionRetention, SESSION_RETENTION_KEY, CLEANUP_CALLBACK } from "./session-retention";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
@@ -25,6 +28,9 @@ export interface Env {
   DISCORD_WEBHOOK_URL?: string;
   // 日次トークン上限（超えたら Discord に通知）。デフォルト: 100000
   DAILY_TOKEN_LIMIT?: string;
+  // 明示的に有効化した場合のみ、24時間無接続の旧SSEセッションを削除する。
+  // 既存セッションの一括削除は行わない。
+  MCP_SESSION_CLEANUP?: string;
 }
 
 // レスポンスヘルパー
@@ -32,15 +38,16 @@ const text = (t: string) => ({ type: "text" as const, text: t });
 const ok = (t: string) => ({ content: [text(t)] });
 const err = (t: string) => ({ content: [text(t)], isError: true });
 
-export class MarkdownMCPv2 extends McpAgent<Env> {
-  server = new McpServer({
-    name: "cloudflare-markdown-mcp",
-    version: "1.0.0",
-  });
+// 同じツールを、旧SSEと永続DBを持たないHTTPの両方から利用する。
+export function createMarkdownServer(env: Env, ctx: Pick<ExecutionContext, "waitUntil">): McpServer {
+  const server = new McpServer({ name: "cloudflare-markdown-mcp", version: "1.0.0" });
+  registerMarkdownTools(server, env, ctx);
+  return server;
+}
 
-  async init(): Promise<void> {
+function registerMarkdownTools(server: McpServer, env: Env, ctx: Pick<ExecutionContext, "waitUntil">): void {
     // ツール1: ファイルをMarkdownに変換
-    this.server.tool(
+    server.tool(
       "convert_file_to_markdown",
       "ファイル（PDF、Word、Excel、HTML等）をMarkdown形式に変換します。contentにURLを渡した場合（http://またはhttps://で始まる）は自動的にURLのページをMarkdownに変換します。ファイルの場合はBase64エンコードして渡してください。画像変換（JPEG/PNG/WebP/SVG）はサーバー側で ENABLE_IMAGE_CONVERSION=true が設定されている場合のみ利用できます。",
       {
@@ -81,8 +88,8 @@ export class MarkdownMCPv2 extends McpAgent<Env> {
         if (/^https?:\/\//i.test(content.trim())) {
           try {
             const result = await convertUrlToMarkdown(
-              this.env.CLOUDFLARE_ACCOUNT_ID,
-              this.env.CLOUDFLARE_API_TOKEN,
+              env.CLOUDFLARE_ACCOUNT_ID,
+              env.CLOUDFLARE_API_TOKEN,
               content.trim(),
               conversionOptions?.cssSelector,
               conversionOptions?.hostname
@@ -90,8 +97,8 @@ export class MarkdownMCPv2 extends McpAgent<Env> {
 
             if (!result.ok) return err(result.error);
 
-            const dailyLimit = parseInt(this.env.DAILY_TOKEN_LIMIT ?? "100000") || 100000;
-            this.ctx.waitUntil(recordUsage(this.env.USAGE_KV, result.tokens, this.env.DISCORD_WEBHOOK_URL, dailyLimit));
+            const dailyLimit = parseInt(env.DAILY_TOKEN_LIMIT ?? "100000") || 100000;
+            ctx.waitUntil(recordUsage(env.USAGE_KV, result.tokens, env.DISCORD_WEBHOOK_URL, dailyLimit));
 
             return ok(`${result.markdown}\n\n---\n*変換元URL: ${content.trim()}*`);
           } catch (error) {
@@ -110,9 +117,9 @@ export class MarkdownMCPv2 extends McpAgent<Env> {
 
         try {
           const result = await convertFileToMarkdown(
-            this.env.CLOUDFLARE_ACCOUNT_ID,
-            this.env.CLOUDFLARE_API_TOKEN,
-            isImageConversionEnabled(this.env.ENABLE_IMAGE_CONVERSION),
+            env.CLOUDFLARE_ACCOUNT_ID,
+            env.CLOUDFLARE_API_TOKEN,
+            isImageConversionEnabled(env.ENABLE_IMAGE_CONVERSION),
             filename,
             binaryContent,
             resolvedMimeType,
@@ -121,8 +128,8 @@ export class MarkdownMCPv2 extends McpAgent<Env> {
 
           if (!result.ok) return err(result.error);
 
-          const dailyLimit = parseInt(this.env.DAILY_TOKEN_LIMIT ?? "100000") || 100000;
-          this.ctx.waitUntil(recordUsage(this.env.USAGE_KV, result.tokens, this.env.DISCORD_WEBHOOK_URL, dailyLimit));
+          const dailyLimit = parseInt(env.DAILY_TOKEN_LIMIT ?? "100000") || 100000;
+          ctx.waitUntil(recordUsage(env.USAGE_KV, result.tokens, env.DISCORD_WEBHOOK_URL, dailyLimit));
 
           return ok(
             `${result.markdown}\n\n---\n*変換完了: ${filename} | トークン数: ${result.tokens}*`
@@ -134,7 +141,7 @@ export class MarkdownMCPv2 extends McpAgent<Env> {
     );
 
     // ツール2: URLのコンテンツをMarkdownに変換
-    this.server.tool(
+    server.tool(
       "convert_url_to_markdown",
       "URLのページコンテンツを取得し、Markdown形式に変換します。HTMLページの内容を構造化したMarkdownとして取得するのに便利です。",
       {
@@ -151,8 +158,8 @@ export class MarkdownMCPv2 extends McpAgent<Env> {
       async ({ url, cssSelector, hostname }) => {
         try {
           const result = await convertUrlToMarkdown(
-            this.env.CLOUDFLARE_ACCOUNT_ID,
-            this.env.CLOUDFLARE_API_TOKEN,
+            env.CLOUDFLARE_ACCOUNT_ID,
+            env.CLOUDFLARE_API_TOKEN,
             url,
             cssSelector,
             hostname
@@ -160,8 +167,8 @@ export class MarkdownMCPv2 extends McpAgent<Env> {
 
           if (!result.ok) return err(result.error);
 
-          const dailyLimit = parseInt(this.env.DAILY_TOKEN_LIMIT ?? "100000") || 100000;
-          this.ctx.waitUntil(recordUsage(this.env.USAGE_KV, result.tokens, this.env.DISCORD_WEBHOOK_URL, dailyLimit));
+          const dailyLimit = parseInt(env.DAILY_TOKEN_LIMIT ?? "100000") || 100000;
+          ctx.waitUntil(recordUsage(env.USAGE_KV, result.tokens, env.DISCORD_WEBHOOK_URL, dailyLimit));
 
           return ok(`${result.markdown}\n\n---\n*変換元URL: ${url}*`);
         } catch (error) {
@@ -171,15 +178,15 @@ export class MarkdownMCPv2 extends McpAgent<Env> {
     );
 
     // ツール3: 対応フォーマット一覧を取得
-    this.server.tool(
+    server.tool(
       "list_supported_formats",
       "Markdown変換がサポートするファイル形式の一覧を取得します。",
       {},
       async () => {
         try {
           const result = await listSupportedFormats(
-            this.env.CLOUDFLARE_ACCOUNT_ID,
-            this.env.CLOUDFLARE_API_TOKEN
+            env.CLOUDFLARE_ACCOUNT_ID,
+            env.CLOUDFLARE_API_TOKEN
           );
 
           if (!result.ok) return err(result.error);
@@ -190,5 +197,52 @@ export class MarkdownMCPv2 extends McpAgent<Env> {
         }
       }
     );
+
+}
+
+export class MarkdownMCPv2 extends McpAgent<Env> {
+  server = new McpServer({ name: "cloudflare-markdown-mcp", version: "1.0.0" });
+
+  private readonly retention = new LegacySessionRetention({
+    enabled: () => this.env.MCP_SESSION_CLEANUP === "true",
+    read: () => this.ctx.storage.get(SESSION_RETENTION_KEY),
+    write: (record) => this.ctx.storage.put(SESSION_RETENTION_KEY, record),
+    hasConnections: () => Array.from(this.getConnections()).length > 0,
+    schedules: () => this.getSchedules().filter((task) => task.callback === CLEANUP_CALLBACK),
+    schedule: async () => { await this.scheduleEvery(3600, CLEANUP_CALLBACK); },
+    cancel: (id) => this.cancelSchedule(id),
+    exclusive: (callback) => this.ctx.blockConcurrencyWhile(callback),
+    destroy: () => this.destroy(),
+  });
+
+  async init(): Promise<void> {
+    registerMarkdownTools(this.server, this.env, this.ctx);
   }
+
+  async onStart(props?: Record<string, unknown>): Promise<void> {
+    await super.onStart(props);
+    // start() never refreshes an existing timestamp on hibernation/restart.
+    await this.retention.start(this.getTransportType() === "sse");
+  }
+
+  async onConnect(connection: Connection, context: ConnectionContext): Promise<void> {
+    await super.onConnect(connection, context);
+    if (this.getTransportType() === "sse") await this.retention.touch("connect");
+  }
+
+  async onSSEMcpMessage(sessionId: string, body: unknown, extraInfo?: MessageExtraInfo): Promise<Error | null> {
+    await this.retention.touch("message");
+    return super.onSSEMcpMessage(sessionId, body, extraInfo);
+  }
+
+  async onClose(_connection: Connection, _code: number, _reason: string, _wasClean: boolean): Promise<void> {
+    // Close only marks activity. Deletion runs in its own alarm invocation.
+    await this.retention.touch("close");
+  }
+
+  async cleanupLegacySession(): Promise<void> {
+    // Alarm invocations may have no Agent name/onStart after reconstruction.
+    await this.retention.cleanup();
+  }
+
 }

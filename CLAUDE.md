@@ -86,11 +86,14 @@ GET  https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/tomarkdown/su
 1. `McpAgent<Env>` を継承・`init()` 内でツール登録
 2. 型エラーは必ず修正してからコミット (`make build`)
 3. エラー時は `isError: true` を返す
-4. Durable Objects の変更時は `wrangler.jsonc` の `migrations` を更新
+4. Durable Object クラスを追加・改名する場合は新しい migration を追加する。既存の migration / namespace を変更・削除しない。セッション保持メタデータの追加や HTTP ルートの追加だけなら migration は不要
+5. 推奨 `/mcp-http` は POST ごとに fresh なサーバー / transport を作成し SQL を使わない。旧 `/mcp` SSE は互換維持
+6. `MCP_SESSION_CLEANUP=true` は不可逆なセッション削除を有効化する。デフォルト無効を保ち、利用者が影響を確認してから有効化する
+7. `make test` で互換性・保持条件を検証する
 
 ## デプロイ先
 
 - **本番 URL**: `https://cloudflare-markdown-mcp-server.0g0.xyz`
-- **MCP Endpoint**: `https://cloudflare-markdown-mcp-server.0g0.xyz/mcp`
+- **MCP Endpoint**: `https://cloudflare-markdown-mcp-server.0g0.xyz/mcp-http`
 - **Workers URL**: `https://cloudflare-markdown-mcp-server.0g0.workers.dev`
 - **GitHub**: `https://github.com/g-kari/-cloudflare-markdown-mcp-server`

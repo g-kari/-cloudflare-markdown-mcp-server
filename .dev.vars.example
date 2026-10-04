@@ -21,3 +21,7 @@ CLOUDFLARE_API_TOKEN=your_api_token_here
 # 画像変換（JPEG/PNG/WebP/SVG）は Workers AI モデルを使用するため費用が発生する可能性があります。
 # 有効化する場合は "true" を設定してください。
 # ENABLE_IMAGE_CONVERSION=true
+
+# 旧SSEの24h無接続セッションを不可逆に削除する機能（既定: 無効）
+# 運用者が影響を確認してから true に設定する
+MCP_SESSION_CLEANUP=false

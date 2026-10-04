@@ -4,7 +4,8 @@
   "compatibility_date": "2024-12-01",
   "compatibility_flags": ["nodejs_compat"],
 
-  // Durable Objects: MCPAgentの状態管理に必要（SQLite必須）
+  // Durable Objects: 旧 /mcp SSE の互換維持に必要（SQLite必須）
+  // 推奨 /mcp-http はセッション用 Durable Object を作成しない
   "durable_objects": {
     "bindings": [
       {
@@ -46,6 +47,10 @@
   //   ENABLE_IMAGE_CONVERSION — "true" で画像変換を有効化（費用発生の可能性あり）
   //   DISCORD_WEBHOOK_URL    — 使用量通知先の Discord Webhook URL
   //   DAILY_TOKEN_LIMIT      — 日次トークン上限（デフォルト: 100000）
+  //
+  // オプション環境変数（既定では未設定 / 無効）:
+  //   MCP_SESSION_CLEANUP=true — 24h無接続の旧SSEセッションを不可逆に削除
+  //   有効化前に README の影響・対象を確認する。既存 DB の一括削除は行わない。
   //
   // 使用量追跡を有効化する場合は KV Namespace を追加:
   //   1. npx wrangler kv namespace create USAGE_KV
