@@ -14,7 +14,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.27.1",
     "agents": "^0.3.10",
-    "zod": "^3.24.0"
+    "zod": "^4.4.3"
   },
   "overrides": {
     "@modelcontextprotocol/sdk": "1.27.1"
