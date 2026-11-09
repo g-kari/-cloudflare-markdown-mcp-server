@@ -20,7 +20,7 @@
     "@modelcontextprotocol/sdk": "1.27.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250109.0",
+    "@cloudflare/workers-types": "^5.0.0",
     "@typescript-eslint/parser": "8.71.0",
     "esbuild": "0.27.3",
     "eslint": "10.12.0",
