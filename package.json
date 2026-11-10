@@ -12,12 +12,12 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.32.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "agents": "^0.3.10",
     "zod": "^4.4.3"
   },
   "overrides": {
-    "@modelcontextprotocol/sdk": "1.32.0"
+    "@modelcontextprotocol/sdk": "1.32.2"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.0.0",
