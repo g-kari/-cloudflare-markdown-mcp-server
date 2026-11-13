@@ -22,7 +22,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^5.0.0",
     "@typescript-eslint/parser": "8.72.2",
-    "esbuild": "0.28.1",
+    "esbuild": "0.28.2",
     "eslint": "10.14.0",
     "miniflare": "4.20260730.0",
     "typescript": "^5.7.2",
